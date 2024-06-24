@@ -15,10 +15,12 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.TotalCaptureResult
 import android.media.ImageReader
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Log
 import android.view.Surface
 import android.view.TextureView
 import android.widget.Button
@@ -111,13 +113,14 @@ class MainActivity : ComponentActivity() {
         imageReader = ImageReader.newInstance(1080, 1920, ImageFormat.JPEG, 1)
         imageReader.setOnImageAvailableListener(object: ImageReader.OnImageAvailableListener {
             override fun onImageAvailable(p0: ImageReader?) {
-
                 var image = p0?.acquireLatestImage()
                 var buffer = image!!.planes[0].buffer
                 var bytes = ByteArray(buffer.remaining())
                 buffer.get(bytes)
 
-                var file = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "img.jpeg")
+                // Generate a unique filename for each image
+                val filename = "img_${System.currentTimeMillis()}.jpeg"
+                var file = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), filename)
                 var fileOutputStream = FileOutputStream(file)
 
                 fileOutputStream.write(bytes)
@@ -125,16 +128,36 @@ class MainActivity : ComponentActivity() {
                 image.close()
                 fileOutputStream.close()
 
-                /*Toast.makeText(this@MainActivity, "Image captured", Toast.LENGTH_SHORT).show()*/
                 Toast.makeText(this@MainActivity, "Image captured and saved at ${file.absolutePath}", Toast.LENGTH_SHORT).show()
             }
         }, handler)
 
-        findViewById<Button>(R.id.capture).apply {
+        /*findViewById<Button>(R.id.capture).apply {
             setOnClickListener {
                 captureRequest = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
                 captureRequest.addTarget(imageReader.surface)
                 cameraCaptureSession.capture(captureRequest.build(), null, null)
+            }
+        }*/
+        findViewById<Button>(R.id.capture).apply {
+            setOnClickListener {
+                val captureList = mutableListOf<CaptureRequest>()
+                for (i in 0 until 10) { // Change this to the number of photos you want to capture in the burst
+                    val captureRequest = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                    captureRequest.addTarget(imageReader.surface)
+                    captureList.add(captureRequest.build())
+                }
+                cameraCaptureSession.captureBurst(captureList, object : CameraCaptureSession.CaptureCallback() {
+                    override fun onCaptureCompleted(
+                        session: CameraCaptureSession,
+                        request: CaptureRequest,
+                        result: TotalCaptureResult
+                    ) {
+                        super.onCaptureCompleted(session, request, result)
+                        // Handle the result of the capture here
+                        Log.d("BurstCapture", "Capture completed")
+                    }
+                }, null)
             }
         }
     }
