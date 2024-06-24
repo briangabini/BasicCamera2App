@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import com.bgcoding.camera2api.ui.theme.Camera2ApiTheme
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
@@ -20,6 +21,7 @@ import android.media.ImageReader
 import android.os.Environment
 import android.os.Handler
 import android.os.HandlerThread
+import android.provider.MediaStore
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
@@ -120,15 +122,21 @@ class MainActivity : ComponentActivity() {
 
                 // Generate a unique filename for each image
                 val filename = "img_${System.currentTimeMillis()}.jpeg"
-                var file = File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), filename)
-                var fileOutputStream = FileOutputStream(file)
-
-                fileOutputStream.write(bytes)
-
                 image.close()
-                fileOutputStream.close()
 
-                Toast.makeText(this@MainActivity, "Image captured and saved at ${file.absolutePath}", Toast.LENGTH_SHORT).show()
+                // Add the image to the MediaStore
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+                }
+
+                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                contentResolver.openOutputStream(uri!!).use {
+                    it?.write(bytes)
+                }
+
+                Toast.makeText(this@MainActivity, "Image captured and saved.", Toast.LENGTH_SHORT).show()
             }
         }, handler)
 
