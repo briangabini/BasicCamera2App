@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
@@ -112,7 +113,22 @@ class MainActivity : ComponentActivity() {
 
         }
 
-        imageReader = ImageReader.newInstance(1080, 1920, ImageFormat.JPEG, 1)
+
+        val cameraId = cameraManager.cameraIdList[0]
+        val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+        val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        val sizes = map?.getOutputSizes(ImageFormat.JPEG)
+
+        // Sort the sizes array in descending order and select the first one (highest resolution)
+        val highestResolution = sizes?.sortedWith(compareBy { it.width * it.height })?.last()
+
+        imageReader = if (highestResolution != null) {
+            ImageReader.newInstance(highestResolution.width, highestResolution.height, ImageFormat.JPEG, 1)
+        } else {
+            // Fallback to a default resolution if no sizes are available
+            ImageReader.newInstance(1920, 1080, ImageFormat.JPEG, 1)
+        }
+
         imageReader.setOnImageAvailableListener(object: ImageReader.OnImageAvailableListener {
             override fun onImageAvailable(p0: ImageReader?) {
                 var image = p0?.acquireLatestImage()
